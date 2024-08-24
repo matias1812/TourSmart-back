@@ -1,14 +1,21 @@
 from fastapi import APIRouter, HTTPException
 from typing import List, Dict
-from app.controllers.guia_controller import get_chat_response
+from pydantic import BaseModel
+from app.controllers.guia_controller import generate_tour_route
 
 router = APIRouter()
 
-@router.post("/chat", response_model=Dict[str, str])
-async def chat_route(messages: List[Dict[str, str]], model: str = "lmstudio-community/Phi-3.1-mini-4k-instruct-GGUF", temperature: float = 0.7):
-    response = await get_chat_response(messages, model, temperature)
-    
-    if "error" in response:
-        raise HTTPException(status_code=500, detail=response["error"])
-    
-    return response
+class TourRouteRequest(BaseModel):
+    user_request: str
+    user_lat: float
+    user_lng: float
+
+@router.post("/tour-route", response_model=List[Dict[str, str]])
+async def tour_route(request: TourRouteRequest):
+    try:
+        route = generate_tour_route(request.user_request, request.user_lat, request.user_lng)
+        if not route:
+            raise HTTPException(status_code=404, detail="No tour route found based on the request")
+        return route
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
