@@ -1,9 +1,10 @@
-from flask import Flask, jsonify, request
+from fastapi import FastAPI, HTTPException, Query
+from typing import List
 import google.auth
 from google.auth.transport.requests import AuthorizedSession
 import config
 
-app = Flask(__name__)
+app = FastAPI()
 
 # Configuración de autenticación
 credentials, _ = google.auth.load_credentials_from_file(
@@ -11,11 +12,11 @@ credentials, _ = google.auth.load_credentials_from_file(
 )
 authed_session = AuthorizedSession(credentials)
 
-def fetch_places(lat, lng, place_type, page_token=''):
+def fetch_places(lat: str, lng: str, place_type: str, page_token: str = '') -> dict:
     url = 'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
     params = {
         'location': f'{lat},{lng}',
-        'radius': 1000000,  # Cambié el radio a 10km por defecto
+        'radius': 10000,  # Cambié el radio a 10km por defecto
         'type': place_type,
         'key': config.GOOGLE_PLACES_API_KEY,
         'pagetoken': page_token
@@ -28,25 +29,26 @@ def fetch_places(lat, lng, place_type, page_token=''):
         print(f"Error fetching data: {response.status_code}, {response.text}")  # Debugging line
     return response.json()
 
-@app.route('/places', methods=['GET'])
-def get_places():
-    lat = request.args.get('latitude')
-    lng = request.args.get('longitude')
-    place_type = request.args.get('type')
-    
-    if not lat or not lng or not place_type:
-        return jsonify({'error': 'Latitude, Longitude, and Type are required'}), 400
-
+@app.get("/places", response_model=List[dict])
+async def get_places(
+    latitude: str = Query(..., description="Latitude of the location"),
+    longitude: str = Query(..., description="Longitude of the location"),
+    place_type: str = Query(..., description="Type of place to search for")
+):
     places_data = []
     page_token = ''
     while True:
-        data = fetch_places(lat, lng, place_type, page_token)
+        data = fetch_places(latitude, longitude, place_type, page_token)
         places_data.extend(data.get('results', []))
         page_token = data.get('next_page_token')
         if not page_token:
             break
 
-    return jsonify(places_data)
+    if not places_data:
+        raise HTTPException(status_code=404, detail="No places found")
+
+    return places_data
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, debug=True)
