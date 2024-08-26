@@ -8,5 +8,5 @@ requests
 pydantic
 openai
 pymysql
-whisper
-elevenlabs
+cryptography 
+sqlalchemy
