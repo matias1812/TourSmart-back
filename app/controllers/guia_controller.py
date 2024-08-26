@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.places import Place
-from app.config import config
+from app.models.models import Place
+from config import config
 from openai import OpenAI
 
 # Configura el cliente OpenAI
